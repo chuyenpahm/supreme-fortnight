@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#11121a" />
+    <meta
+      name="description"
+      content="Ma Sói — tạo phòng, mời bạn bè bằng mã và chơi trực tuyến không cần quản trò."
+    />
+    <title>Ma Sói — Đêm xuống</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js" defer></script>
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <div class="page-glow page-glow-one" aria-hidden="true"></div>
+    <div class="page-glow page-glow-two" aria-hidden="true"></div>
+
+    <main class="app-shell">
+      <header class="site-header">
+        <a class="brand" href="#" aria-label="Ma Sói — trang chủ">
+          <span class="brand-mark" aria-hidden="true">☾</span>
+          <span>ĐÊM <b>TRĂNG</b></span>
+        </a>
+        <span class="header-note"><span class="live-dot"></span> Chơi trực tuyến</span>
+      </header>
+
+      <section id="welcome-screen" class="screen welcome-screen">
+        <div class="hero-copy">
+          <p class="eyebrow"><span></span> MỘT NGÔI LÀNG · NHIỀU BÍ MẬT</p>
+          <h1>Khi đêm xuống,<br />ai là <em>ma sói?</em></h1>
+          <p class="hero-description">
+            Tạo phòng, gửi mã cho bạn bè và tìm ra bầy sói. Đêm ngày tự động chuyển,
+            không cần quản trò.
+          </p>
+        </div>
+
+        <div class="entry-card">
+          <label class="field-label" for="player-name">Tên của bạn</label>
+          <input
+            id="player-name"
+            class="text-input"
+            type="text"
+            maxlength="20"
+            autocomplete="nickname"
+            placeholder="Nhập tên hiển thị"
+          />
+          <p id="name-error" class="field-error" aria-live="polite"></p>
+
+          <button id="create-room" class="button button-primary button-wide" type="button">
+            <span aria-hidden="true">✦</span> Tạo phòng mới
+          </button>
+
+          <div class="separator"><span>hoặc tham gia phòng</span></div>
+          <form id="join-form" class="join-form">
+            <label class="sr-only" for="room-code">Mã phòng</label>
+            <input
+              id="room-code"
+              class="text-input room-code-input"
+              type="text"
+              inputmode="text"
+              maxlength="6"
+              autocomplete="off"
+              placeholder="MÃ PHÒNG"
+              aria-describedby="connection-error"
+            />
+            <button id="join-room" class="button button-secondary" type="submit">Tham gia</button>
+          </form>
+          <p id="connection-error" class="field-error" aria-live="polite"></p>
+        </div>
+
+        <div class="feature-row">
+          <div class="feature"><span>♧</span><p><b>Vai trò bí mật</b><br />Chỉ bạn mới thấy vai trò của mình</p></div>
+          <div class="feature"><span>♧</span><p><b>Không cần quản trò</b><br />Luật chơi và lượt chơi tự động</p></div>
+          <div class="feature"><span>♧</span><p><b>Chơi từ mọi nơi</b><br />Kết nối qua Internet bằng mã phòng</p></div>
+        </div>
+      </section>
+
+      <section id="lobby-screen" class="screen content-screen" hidden>
+        <div class="screen-heading">
+          <p class="eyebrow"><span></span> PHÒNG CHỜ</p>
+          <h1>Dân làng đang tụ họp</h1>
+          <p id="lobby-description" class="muted"></p>
+        </div>
+        <div class="room-code-card">
+          <div>
+            <span class="field-label">MÃ PHÒNG · GỬI CHO BẠN BÈ</span>
+            <strong id="display-room-code" class="display-room-code"></strong>
+          </div>
+          <button id="copy-room-code" class="button button-small button-secondary" type="button">
+            Sao chép link
+          </button>
+        </div>
+
+        <div class="lobby-grid">
+          <section class="panel player-panel">
+            <div class="panel-heading">
+              <h2>Dân làng</h2>
+              <span id="player-count" class="count-pill">0/16</span>
+            </div>
+            <ul id="player-list" class="player-list"></ul>
+          </section>
+          <section id="roles-panel" class="panel roles-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Vai trò trong ván</h2>
+                <p class="muted small">Dân làng tự động lấp đầy chỗ còn lại.</p>
+              </div>
+            </div>
+            <div id="role-settings" class="role-settings"></div>
+            <p id="roles-error" class="field-error" aria-live="polite"></p>
+          </section>
+        </div>
+        <div class="lobby-footer">
+          <p id="lobby-status" class="muted small"></p>
+          <button id="start-game" class="button button-primary" type="button">Bắt đầu ván</button>
+        </div>
+      </section>
+
+      <section id="game-screen" class="screen content-screen" hidden>
+        <div class="game-topline">
+          <div>
+            <p class="eyebrow"><span></span> ĐÊM TRĂNG · VÁN <b id="round-number">1</b></p>
+            <h1 id="phase-title">Vai trò của bạn</h1>
+          </div>
+          <div class="phase-clock" aria-label="Thời gian còn lại">
+            <span id="phase-timer">--</span><small>GIÂY</small>
+          </div>
+        </div>
+
+        <div id="role-card" class="role-card">
+          <span id="role-symbol" class="role-symbol" aria-hidden="true">☾</span>
+          <div>
+            <span class="field-label">VAI TRÒ CỦA BẠN</span>
+            <h2 id="my-role"></h2>
+            <p id="role-description" class="muted"></p>
+          </div>
+        </div>
+
+        <div class="game-grid">
+          <section class="panel action-panel">
+            <div class="panel-heading">
+              <div>
+                <h2 id="action-title">Diễn biến</h2>
+                <p id="action-description" class="muted small"></p>
+              </div>
+            </div>
+            <p id="game-announcement" class="announcement"></p>
+            <div id="action-area"></div>
+          </section>
+          <section class="panel alive-panel">
+            <div class="panel-heading">
+              <h2>Dân làng</h2>
+              <span id="alive-count" class="count-pill"></span>
+            </div>
+            <ul id="game-player-list" class="player-list game-player-list"></ul>
+          </section>
+        </div>
+        <div class="game-bottom">
+          <p id="private-note" class="private-note" aria-live="polite"></p>
+          <p id="game-connection-status" class="muted small"></p>
+        </div>
+      </section>
+
+      <footer class="site-footer">
+        <span>Không cần quản trò — mọi lượt chơi tự động</span>
+        <span>✦</span>
+        <span>Phòng cần có người tạo phòng trực tuyến</span>
+      </footer>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>
