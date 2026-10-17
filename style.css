@@ -435,6 +435,65 @@ h1 em {
   margin: 5px 0 0;
 }
 
+.communication-panel {
+  margin-top: 16px;
+}
+
+.communication-panel .panel-heading {
+  align-items: flex-start;
+}
+
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  margin: 0 0 12px;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.chat-messages li {
+  padding: 8px 10px;
+  border: 1px solid rgba(229, 216, 190, 0.065);
+  border-radius: 7px;
+  background: rgba(9, 10, 15, 0.28);
+}
+
+.chat-message-heading {
+  color: var(--gold-light);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.chat-messages p {
+  margin: 3px 0 0;
+  color: #e0ded9;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.chat-form {
+  display: flex;
+  gap: 9px;
+}
+
+.chat-form .text-input {
+  min-width: 0;
+  flex: 1;
+}
+
+.voice-status {
+  min-height: 1.2em;
+  margin: 9px 0 0;
+}
+
+.voice-audio {
+  display: none;
+}
+
 .small {
   font-size: 0.74rem;
 }
@@ -835,6 +894,10 @@ h1 em {
 
   .roles-panel {
     order: -1;
+  }
+
+  .communication-panel .panel-heading {
+    align-items: center;
   }
 
   .player-list {

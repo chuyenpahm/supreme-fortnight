@@ -118,6 +118,22 @@
             <p id="roles-error" class="field-error" aria-live="polite"></p>
           </section>
         </div>
+        <section class="panel communication-panel" aria-labelledby="lobby-chat-title">
+          <div class="panel-heading">
+            <div>
+              <h2 id="lobby-chat-title">Trò chuyện cùng dân làng</h2>
+              <p class="muted small communication-hint">Chat và mic mở trong phòng chờ, đóng trong đêm và lúc bỏ phiếu.</p>
+            </div>
+            <button id="lobby-mic" class="button button-secondary" type="button" aria-pressed="false">Bật mic</button>
+          </div>
+          <ol id="lobby-chat-messages" class="chat-messages" aria-live="polite" aria-label="Tin nhắn trong phòng"></ol>
+          <form id="lobby-chat-form" class="chat-form">
+            <label class="sr-only" for="lobby-chat-input">Tin nhắn</label>
+            <input id="lobby-chat-input" class="text-input" type="text" maxlength="500" autocomplete="off" placeholder="Nhập tin nhắn..." />
+            <button class="button button-primary" type="submit">Gửi</button>
+          </form>
+          <p id="lobby-voice-status" class="muted small voice-status" aria-live="polite">Mic đang tắt.</p>
+        </section>
         <div class="lobby-footer">
           <p id="lobby-status" class="muted small"></p>
           <button id="start-game" class="button button-primary" type="button">Bắt đầu ván</button>
@@ -163,6 +179,22 @@
             <ul id="game-player-list" class="player-list game-player-list"></ul>
           </section>
         </div>
+        <section class="panel communication-panel" aria-labelledby="game-chat-title">
+          <div class="panel-heading">
+            <div>
+              <h2 id="game-chat-title">Thảo luận cùng dân làng</h2>
+              <p class="muted small communication-hint">Chat và mic chỉ mở trong lúc thảo luận ban ngày.</p>
+            </div>
+            <button id="game-mic" class="button button-secondary" type="button" aria-pressed="false">Bật mic</button>
+          </div>
+          <ol id="game-chat-messages" class="chat-messages" aria-live="polite" aria-label="Tin nhắn trong ván"></ol>
+          <form id="game-chat-form" class="chat-form">
+            <label class="sr-only" for="game-chat-input">Tin nhắn</label>
+            <input id="game-chat-input" class="text-input" type="text" maxlength="500" autocomplete="off" placeholder="Nhập tin nhắn..." />
+            <button class="button button-primary" type="submit">Gửi</button>
+          </form>
+          <p id="game-voice-status" class="muted small voice-status" aria-live="polite">Mic đang tắt.</p>
+        </section>
         <div class="game-bottom">
           <p id="private-note" class="private-note" aria-live="polite"></p>
           <p id="game-connection-status" class="muted small"></p>

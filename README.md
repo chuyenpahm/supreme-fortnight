@@ -20,11 +20,12 @@ Trang web tĩnh dùng PeerJS Cloud để tìm nhau và thiết lập kết nối
 - Cần ít nhất 5 người và tối thiểu một vai Ma sói.
 - Đêm: Sói bỏ phiếu chọn mục tiêu; Tiên tri soi phe; Phù thủy có một thuốc cứu và một thuốc độc; Bảo vệ chọn người để che chở. Các lượt đêm tự kết thúc khi mọi vai trò cần hành động đã chọn hoặc hết giờ.
 - Thợ săn được chọn một người còn sống để bắn khi bị loại; nếu bắn trúng Thợ săn khác, người đó cũng có lượt bắn. Trưởng làng có lá phiếu nặng gấp đôi.
-- Ngày: người chơi tự thảo luận bằng hình thức bên ngoài game, sau đó bỏ phiếu kín trên trang. Hòa phiếu thì không ai bị loại.
+- Ngày: người chơi thảo luận qua chat hoặc mic ngay trong phòng, sau đó bỏ phiếu kín trên trang. Chat và mic tự khóa vào ban đêm, khi bỏ phiếu và với người đã bị loại. Hòa phiếu thì không ai bị loại.
 - Phe Sói thắng khi số sói còn sống bằng hoặc nhiều hơn số người phe làng; phe làng thắng khi loại hết sói.
 
 ## Lưu ý kết nối và riêng tư
 
 - Chủ phòng cần giữ trang phòng mở và trực tuyến trong suốt ván; nếu chủ phòng đóng trang hoặc mất kết nối, phòng có thể kết thúc. Người chơi khác có thể tải lại trang để kết nối lại khi phòng vẫn hoạt động.
+- Mic cần trình duyệt hỗ trợ WebRTC, kết nối HTTPS và quyền truy cập mic. Chat hoạt động trong phòng chờ và lúc thảo luận ban ngày; âm thanh chỉ truyền khi người chơi chủ động bật mic.
 - Trạng thái trò chơi được giữ trong trình duyệt chủ phòng và gửi qua kết nối ngang hàng. Vai trò người còn sống chỉ được gửi riêng cho từng người chơi, nhưng mô hình này không chống được chủ phòng xem dữ liệu trò chơi hoặc người chơi cố tình gian lận.
 - Đây là game giải trí, không phải dịch vụ có xác thực tài khoản hoặc lưu trữ phòng lâu dài.

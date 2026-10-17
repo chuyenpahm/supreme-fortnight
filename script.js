@@ -83,6 +83,22 @@ const elements = {
   gamePlayerList: document.getElementById("game-player-list"),
   privateNote: document.getElementById("private-note"),
   gameConnectionStatus: document.getElementById("game-connection-status"),
+  communicationPanels: [
+    {
+      form: document.getElementById("lobby-chat-form"),
+      input: document.getElementById("lobby-chat-input"),
+      messages: document.getElementById("lobby-chat-messages"),
+      mic: document.getElementById("lobby-mic"),
+      voiceStatus: document.getElementById("lobby-voice-status"),
+    },
+    {
+      form: document.getElementById("game-chat-form"),
+      input: document.getElementById("game-chat-input"),
+      messages: document.getElementById("game-chat-messages"),
+      mic: document.getElementById("game-mic"),
+      voiceStatus: document.getElementById("game-voice-status"),
+    },
+  ],
   toast: document.getElementById("toast"),
 };
 
@@ -103,6 +119,14 @@ let lastActionPhase = "";
 let pendingPoisonTarget = "";
 let pendingSave = true;
 let afterHunterActions = null;
+let voiceEnabled = false;
+let voiceStatusMessage = "";
+let microphoneStream = null;
+let lastChatSignature = "";
+const voiceCalls = new Map();
+const incomingVoiceCalls = new Set();
+const pendingVoiceCalls = new Set();
+const voiceAudio = new Map();
 
 function randomId() {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -158,6 +182,7 @@ function createRoom() {
   elements.connectionError.textContent = "Đang tạo phòng...";
 
   peer = new Peer(hostPeerId);
+  listenForVoiceCalls();
   peer.on("open", () => {
     room = {
       config: { wolf: 1, seer: 1, witch: 0, guard: 0, hunter: 0, mayor: 0 },
@@ -171,8 +196,10 @@ function createRoom() {
           role: null,
           abilities: { save: true, poison: true },
           privateNote: "",
+          peerId: peer.id,
         },
       ],
+      chat: [],
       game: null,
     };
     localPlayerId = room.players[0].id;
@@ -202,6 +229,7 @@ function attachHostConnection(connection) {
       return;
     }
     if (message.type === "action") handlePlayerAction(connection.playerId, message.action);
+    if (message.type === "chat") handleChatMessage(connection.playerId, message.text);
   });
 
   connection.on("close", () => {
@@ -211,6 +239,7 @@ function attachHostConnection(connection) {
     const player = room?.players.find((entry) => entry.id === playerId);
     if (!player) return;
     player.online = false;
+    player.peerId = "";
     if (!room.game) room.players = room.players.filter((entry) => entry.id !== playerId);
     broadcastState();
   });
@@ -248,6 +277,7 @@ function handleJoin(connection, message) {
       role: null,
       abilities: { save: true, poison: true },
       privateNote: "",
+      peerId: "",
     };
     room.players.push(player);
   } else {
@@ -257,6 +287,7 @@ function handleJoin(connection, message) {
     player.online = true;
   }
 
+  player.peerId = connection.peer;
   connection.playerId = player.id;
   roomConnections.set(player.id, connection);
   connection.send({ type: "welcome", playerId: player.id });
@@ -288,6 +319,7 @@ function joinRoom(event) {
   document.getElementById("join-room").disabled = true;
   hostPeerId = `demtrang-${roomCode.toLowerCase()}`;
   peer = new Peer();
+  listenForVoiceCalls();
 
   peer.on("open", () => connectToHost());
   peer.on("error", (error) => {
@@ -341,6 +373,11 @@ function connectToHost() {
       elements.gameConnectionStatus.textContent = "";
       document.getElementById("join-room").disabled = false;
       render(message.state, message.me);
+    } else if (message.type === "chat") {
+      if (!Array.isArray(room.chat)) room.chat = [];
+      room.chat.push(message.message);
+      room.chat = room.chat.slice(-100);
+      renderCommunication(room, myPrivateState);
     }
   });
   connection.on("close", () => {
@@ -364,12 +401,14 @@ function publicSnapshot() {
   return {
     code: roomCode,
     ownerId: room.players.find((player) => player.owner)?.id,
+    chat: room.chat.slice(-100),
     config: { ...room.config },
     players: room.players.map((player) => ({
       id: player.id,
       name: player.name,
       owner: player.owner,
       online: player.online,
+      peerId: player.online ? player.peerId : "",
       alive: player.alive,
       role: finished || !player.alive ? player.role : null,
     })),
@@ -434,12 +473,265 @@ function broadcastState() {
 function render(state = publicSnapshot(), privateData = privateState(room.players.find((player) => player.id === localPlayerId))) {
   if (!room) return;
   myPrivateState = privateData;
+  renderCommunication(state, privateData);
   if (!state.game) {
     showScreen("lobby");
     renderLobby(state);
   } else {
     showScreen("game");
     renderGame(state, privateData);
+  }
+}
+
+function canCommunicate(state = room, privateData = myPrivateState) {
+  if (!state) return false;
+  const phase = state.game?.phase;
+  if (phase && phase !== "discussion") return false;
+  const player = privateData || state.players?.find((entry) => entry.id === localPlayerId);
+  return !state.game || Boolean(player?.alive);
+}
+
+function renderCommunication(state, privateData) {
+  const allowed = canCommunicate(state, privateData);
+  const messages = Array.isArray(state.chat) ? state.chat.slice(-100) : [];
+  const signature = JSON.stringify(messages);
+
+  for (const panel of elements.communicationPanels) {
+    if (signature !== lastChatSignature) {
+      panel.messages.replaceChildren();
+      for (const message of messages) {
+        if (!message || typeof message.text !== "string" || typeof message.sender !== "string") continue;
+        const item = document.createElement("li");
+        const heading = document.createElement("span");
+        heading.className = "chat-message-heading";
+        heading.textContent = `${message.sender} · ${
+          Number.isFinite(message.time)
+            ? new Date(message.time).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+            : ""
+        }`;
+        const text = document.createElement("p");
+        text.textContent = message.text;
+        item.append(heading, text);
+        panel.messages.append(item);
+      }
+      panel.messages.scrollTop = panel.messages.scrollHeight;
+    }
+    panel.input.disabled = !allowed;
+    panel.form.querySelector("button").disabled = !allowed;
+    panel.mic.disabled = !allowed && !voiceEnabled;
+    panel.mic.textContent = voiceEnabled ? "Tắt mic" : "Bật mic";
+    panel.mic.setAttribute("aria-pressed", String(voiceEnabled));
+    panel.mic.classList.toggle("button-primary", voiceEnabled);
+    panel.mic.classList.toggle("button-secondary", !voiceEnabled);
+    panel.voiceStatus.textContent =
+      voiceStatusMessage ||
+      (voiceEnabled
+        ? allowed
+          ? "Mic đang bật. Người chơi khác có thể nghe bạn."
+          : "Mic đang tạm tắt trong pha này."
+        : allowed
+          ? "Mic đang tắt. Bạn vẫn có thể nghe người bật mic."
+          : "Chat và mic đang tắt trong pha này.");
+  }
+  lastChatSignature = signature;
+  processPendingVoiceCalls();
+  syncVoiceCalls(state, allowed);
+}
+
+function handleChatMessage(playerId, value) {
+  if (!room || !canCommunicate() || typeof value !== "string" || value.length > 500) return;
+  const text = value.trim();
+  const player = room.players.find((entry) => entry.id === playerId);
+  if (!text || !player?.online || !player.alive) return;
+
+  const message = {
+    senderId: player.id,
+    sender: player.name,
+    text,
+    time: Date.now(),
+  };
+  room.chat.push(message);
+  room.chat = room.chat.slice(-100);
+  renderCommunication(publicSnapshot(), privateState(room.players.find((entry) => entry.id === localPlayerId)));
+  for (const connection of roomConnections.values()) {
+    if (connection.open) connection.send({ type: "chat", message });
+  }
+}
+
+function sendChat(value) {
+  const text = value.trim();
+  if (!text || text.length > 500 || !canCommunicate()) return false;
+  if (isHost) {
+    handleChatMessage(localPlayerId, text);
+    return true;
+  }
+  if (!hostConnection?.open) {
+    showToast("Mất kết nối với phòng. Tin nhắn chưa được gửi.");
+    return false;
+  }
+  hostConnection.send({ type: "chat", text });
+  return true;
+}
+
+function isKnownVoicePeer(peerId) {
+  return room?.players?.some(
+    (player) => player.peerId === peerId && player.online && (!room.game || player.alive),
+  );
+}
+
+function listenForVoiceCalls() {
+  peer.on("call", handleIncomingVoiceCall);
+}
+
+function handleIncomingVoiceCall(call) {
+  if (!room) {
+    if (pendingVoiceCalls.size >= MAX_PLAYERS) {
+      call.close();
+      return;
+    }
+    pendingVoiceCalls.add(call);
+    call.on("close", () => pendingVoiceCalls.delete(call));
+    return;
+  }
+  if (!canCommunicate() || !isKnownVoicePeer(call.peer)) {
+    call.close();
+    return;
+  }
+
+  incomingVoiceCalls.add(call);
+  call.on("stream", (stream) => attachVoiceAudio(call, stream));
+  call.on("close", () => removeVoiceCall(call));
+  call.on("error", (error) => {
+    console.warn("Kết nối âm thanh gặp lỗi:", error);
+    voiceStatusMessage = "Kết nối mic gặp sự cố. Hãy thử tắt rồi bật mic lại.";
+    renderCommunication(room, myPrivateState);
+  });
+  try {
+    call.answer();
+  } catch (error) {
+    console.error("Không thể nhận cuộc gọi mic:", error);
+    call.close();
+    voiceStatusMessage = "Không thể nhận mic. Hãy thử kết nối lại.";
+    renderCommunication(room, myPrivateState);
+  }
+}
+
+function processPendingVoiceCalls() {
+  if (!room || !pendingVoiceCalls.size) return;
+  for (const call of pendingVoiceCalls) {
+    pendingVoiceCalls.delete(call);
+    handleIncomingVoiceCall(call);
+  }
+}
+
+function attachVoiceAudio(call, stream) {
+  const audio = document.createElement("audio");
+  audio.className = "voice-audio";
+  audio.autoplay = true;
+  audio.playsInline = true;
+  audio.srcObject = stream;
+  audio.muted = !canCommunicate();
+  document.body.append(audio);
+  voiceAudio.set(call, audio);
+  audio.play().catch((error) => {
+    console.warn("Không thể phát âm thanh mic:", error);
+    voiceStatusMessage = "Chưa phát được âm thanh. Hãy tương tác với trang rồi thử lại.";
+    renderCommunication(room, myPrivateState);
+  });
+}
+
+function removeVoiceCall(call) {
+  incomingVoiceCalls.delete(call);
+  if (voiceAudio.has(call)) {
+    voiceAudio.get(call).srcObject = null;
+    voiceAudio.get(call).remove();
+    voiceAudio.delete(call);
+  }
+  if (voiceCalls.get(call.peer) === call) voiceCalls.delete(call.peer);
+}
+
+function syncVoiceCalls(state = room, allowed = canCommunicate(state)) {
+  const canSend = voiceEnabled && microphoneStream && allowed;
+  microphoneStream?.getAudioTracks().forEach((track) => {
+    track.enabled = Boolean(canSend);
+  });
+  for (const audio of voiceAudio.values()) audio.muted = !allowed;
+
+  if (!state || !canSend || !peer?.open) return;
+  const targets = state.players.filter(
+    (player) =>
+      player.id !== localPlayerId &&
+      player.online &&
+      player.alive &&
+      typeof player.peerId === "string" &&
+      player.peerId,
+  );
+  const targetPeerIds = new Set(targets.map((player) => player.peerId));
+
+  for (const [peerId, call] of voiceCalls) {
+    if (!targetPeerIds.has(peerId)) {
+      call.close();
+      voiceCalls.delete(peerId);
+    }
+  }
+  for (const player of targets) {
+    if (voiceCalls.has(player.peerId)) continue;
+    try {
+      const call = peer.call(player.peerId, microphoneStream);
+      if (!call) throw new Error("PeerJS không thể khởi tạo cuộc gọi mic.");
+      voiceCalls.set(player.peerId, call);
+      call.on("close", () => removeVoiceCall(call));
+      call.on("error", (error) => {
+        console.warn("Không thể kết nối mic:", error);
+        voiceStatusMessage = `Không thể kết nối mic với ${player.name}.`;
+        renderCommunication(room, myPrivateState);
+      });
+    } catch (error) {
+      console.error("Không thể gọi mic:", error);
+      voiceStatusMessage = "Không thể kết nối mic. Hãy kiểm tra kết nối Internet.";
+    }
+  }
+}
+
+async function toggleMicrophone() {
+  if (voiceEnabled) {
+    voiceEnabled = false;
+    voiceStatusMessage = "";
+    for (const call of voiceCalls.values()) call.close();
+    voiceCalls.clear();
+    syncVoiceCalls();
+    renderCommunication(room, myPrivateState);
+    return;
+  }
+  if (!canCommunicate()) return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    voiceStatusMessage = "Trình duyệt không hỗ trợ mic. Hãy mở trò chơi bằng HTTPS.";
+    renderCommunication(room, myPrivateState);
+    return;
+  }
+
+  voiceEnabled = true;
+  voiceStatusMessage = "Đang chờ quyền truy cập mic...";
+  renderCommunication(room, myPrivateState);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (!voiceEnabled) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    microphoneStream?.getTracks().forEach((track) => track.stop());
+    microphoneStream = stream;
+    voiceStatusMessage = "";
+    syncVoiceCalls();
+    renderCommunication(room, myPrivateState);
+  } catch (error) {
+    console.error("Không thể truy cập mic:", error);
+    voiceEnabled = false;
+    voiceStatusMessage =
+      error.name === "NotAllowedError"
+        ? "Chưa được cấp quyền mic. Bạn có thể tiếp tục dùng chat."
+        : "Không thể bật mic. Hãy kiểm tra thiết bị và thử lại.";
+    renderCommunication(room, myPrivateState);
   }
 }
 
@@ -963,7 +1255,7 @@ function renderGame(state, me) {
   const phaseDetails = {
     wolves: ["Đêm xuống", "Bầy sói đang thức. Chọn một mục tiêu chung."],
     powers: ["Đêm xuống", "Các vai trò đặc biệt đang hành động."],
-    discussion: ["Thảo luận ban ngày", "Hãy trò chuyện bên ngoài trò chơi và tìm ra manh mối."],
+    discussion: ["Thảo luận ban ngày", "Dùng khung chat hoặc mic bên dưới để cùng tìm manh mối."],
     vote: ["Bỏ phiếu", "Mỗi người còn sống có một lá phiếu kín."],
     hunter: ["Phát súng cuối cùng", "Thợ săn bị loại có thể chọn một mục tiêu."],
     ended: ["Ván chơi kết thúc", "Vai trò của cả làng đã được tiết lộ."],
@@ -1218,9 +1510,24 @@ elements.roomCodeInput.addEventListener("input", () => {
 });
 elements.copyRoom.addEventListener("click", copyInvite);
 elements.start.addEventListener("click", startGame);
+for (const panel of elements.communicationPanels) {
+  panel.form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const text = panel.input.value.trim();
+    if (!text) return;
+    if (sendChat(text)) panel.input.value = "";
+  });
+  panel.mic.addEventListener("click", toggleMicrophone);
+}
 window.setInterval(() => {
   if (room?.game) updateTimer();
 }, 400);
+window.addEventListener("beforeunload", () => {
+  for (const call of voiceCalls.values()) call.close();
+  for (const call of incomingVoiceCalls) call.close();
+  for (const call of pendingVoiceCalls) call.close();
+  microphoneStream?.getTracks().forEach((track) => track.stop());
+});
 
 elements.name.value = localStorage.getItem("werewolf-player-name") || "";
 const roomFromLink = new URLSearchParams(window.location.search).get("room");
